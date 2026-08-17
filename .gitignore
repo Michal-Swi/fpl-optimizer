@@ -1,0 +1,10 @@
+data/bootstrap-static
+data/data
+data/parsed
+data/2023
+data/2024
+data/2025
+
+venv
+venv/
+
