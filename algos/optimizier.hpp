@@ -14,7 +14,7 @@ struct Player {
     std::string first_name;
     std::string second_name;
     int team;
-    std::string element_type;   // normalized to "GK" / "DEF" / "MID" / "FWD"
+    std::string element_type;   
     int now_cost;
     int minutes;
     int starts;
@@ -126,8 +126,9 @@ class Optimizer {
         }
 
         if (rows_skipped > 0) {
-            std::cerr << rows_skipped << " row(s) skipped during load — see messages above.\n";
+            std::cerr << rows_skipped << " row(s) skipped during load\n";
         }
+
         std::cerr << "Loaded " << players.size() << " players from " << filepath << "\n";
 
         prune_non_playing_players();
@@ -147,9 +148,6 @@ class Optimizer {
 	public:
     void export_ev_to_csv(const std::string& filename = "../data/player_ev_data.csv") const {
         std::ofstream file(filename);
-        if (!file.is_open()) {
-            throw std::runtime_error("Error: Could not open file for exporting EV: " + filename);
-        }
 
         file << "first_name,second_name,element_type,team,now_cost,minutes,ev\n";
         for (const auto& p : players) {
@@ -173,17 +171,20 @@ class Optimizer {
         static const std::map<int, std::string> pos_map = {
             {1, "GK"}, {2, "DEF"}, {3, "MID"}, {4, "FWD"}
         };
+
         try {
             int code = std::stoi(token);
             auto it = pos_map.find(code);
-            if (it != pos_map.end()) return it->second;
+
+            if (it != pos_map.end()) {
+				return it->second;
+			}
         } catch (...) {
-            // not numeric — fall through, try as a direct label below
         }
+
         if (token == "GK" || token == "DEF" || token == "MID" || token == "FWD") {
             return token;
         }
-        throw std::runtime_error("Unrecognized element_type value: '" + token + "'");
     }
 
 	private:
@@ -199,7 +200,6 @@ class Optimizer {
             min_costs[{t, "FWD"}] = 999;
         }
 
-        // ~5 full matches. Below this, per-game rate stats are computed off too
         const int MEANINGFUL_MINUTES_THRESHOLD = 450;
 
         for (const auto& p : players) {
@@ -225,13 +225,17 @@ class Optimizer {
 
 	private:
     double poisson_cdf(int k, double lambda) const {
-        if (lambda <= 0.0) return 1.0;
+        if (lambda <= 0.0) {
+			return 1.0;
+		}
+
         double sum = 0.0;
         double term = std::exp(-lambda);
         for (int i = 0; i <= k; ++i) {
             sum += term;
             term *= lambda / (i + 1.0);
         }
+
         return sum;
     }
 
@@ -247,12 +251,14 @@ class Optimizer {
 
 	private:
     double calculate_attack_ev(const Player& p) const {
-        if (p.appearances == 0) return 0.0;
+        if (p.appearances == 0) {
+			return 0.0;
+		}
 
         int goal_multiplier = 0;
         if (p.element_type == "FWD") goal_multiplier = 4;
         else if (p.element_type == "MID") goal_multiplier = 5;
-        else goal_multiplier = 6; // GK/DEF
+        else goal_multiplier = 6; 
 
         double goals_per_game = static_cast<double>(p.goals_scored) / p.appearances;
         double assists_per_game = static_cast<double>(p.assists) / p.appearances;
