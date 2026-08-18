@@ -5,7 +5,6 @@ import numpy as np
 from adjustText import adjust_text
 
 df = pd.read_csv('../player_ev_data.csv')
-
 df = df[df['ev'] > 0]
 
 fig, axes = plt.subplots(2, 2, figsize=(20, 14))
@@ -57,18 +56,30 @@ for i, pos in enumerate(positions):
         
     adjust_text(
         texts, 
-        x=pos_df['now_cost'].tolist(),
+        x=pos_df['now_cost'].tolist(), 
         y=pos_df['ev'].tolist(),
         ax=ax, 
-        force_text=(1.0, 1.5),
-        force_points=(0.5, 1.0),
+        force_text=(1.0, 1.5),    
+        force_points=(0.5, 1.0),  
         max_iter=3000,            
-        arrowprops=dict(arrowstyle='-', color='gray', lw=1.0, alpha=0.8)
+        arrowprops=dict(
+            arrowstyle='-', 
+            color='gray', 
+            lw=1.0, 
+            alpha=0.8,
+            shrinkA=5,
+            shrinkB=5
+        )
     )
         
-    ax.set_title(f'{pos} Expected Value (EV) vs. Price', fontweight='bold', fontsize=16)
-    ax.set_xlabel('Price (Raw FPL Cost)')
-    ax.set_ylabel('Calculated EV')
+    ax.set_title(pos, fontweight='bold', fontsize=12)
+
+    if i >= 2:
+        ax.set_xlabel('Price')
+    else:
+        ax.set_xlabel('')
+
+    ax.set_ylabel('EV')
     ax.grid(True, linestyle=':', alpha=0.6)
 
 plt.tight_layout()
