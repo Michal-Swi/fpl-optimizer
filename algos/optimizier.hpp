@@ -306,7 +306,7 @@ class Optimizer {
 	public:
     void assign_ev() {
         for (auto& p : players) {
-            if (p.appearances == 0) {
+            if (p.appearances < 3) {
                 p.ev = 0.0;
                 continue;
             }
