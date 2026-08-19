@@ -14,3 +14,8 @@ optimizing with knapsack-like problems.
 Here is a nice graph
 ![A really nice graph, believe me](https://github.com/Michal-Swi/fpl-optimizer/blob/main/data/graphs/player_value_to_price.png)
 
+# VCPOS
+The technique used to write this magnificent optimizer is VCPOS - Vibe Coded Piece Of Shit. Agents crosschecked 
+eachother and sometimes I had to actually step in and throw a bucket of cold water on them, but agents wrote 
+most of the code and tested like half while I only directed. Great time to JUST be starting a CS degree.  
+
