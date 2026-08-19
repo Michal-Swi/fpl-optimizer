@@ -640,7 +640,22 @@ public:
         }
 
         glp_delete_prob(mip);
+
         return optimal_squad;
+    }
+
+	public:
+	void export_starting_11_to_csv(const std::vector<std::pair<Player, bool>> &squad, const std::string &filename) const {
+        std::ofstream file(filename);
+        file << "name,ev\n";
+        
+        for (const auto& p : squad) {
+            if (p.second) {
+                file << p.first.first_name << " " << p.first.second_name << "," << p.first.ev << "\n";
+            }
+        }
+        
+        file.close();
     }
 };
 

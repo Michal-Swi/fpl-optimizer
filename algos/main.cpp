@@ -57,6 +57,8 @@ int main() {
         used_budget += p.first.now_cost;
     }
 
+
+	o.export_starting_11_to_csv(players1, "../data/11.csv");
 	std::cout << "Ev: " << ev << std::endl; 
     std::cout << "Used budget: " << used_budget << std::endl;
 
@@ -76,6 +78,7 @@ int main() {
         used_budget += p.first.now_cost;
     }
 
+	o.export_starting_11_to_csv(players2, "../data/13.csv");
 	std::cout << "Ev: " << ev << std::endl; 
     std::cout << "Used budget: " << used_budget << std::endl;
 
