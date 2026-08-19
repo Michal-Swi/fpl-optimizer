@@ -10,7 +10,7 @@ Data is from [vaastav repo](https://github.com/vaastav/Fantasy-Premier-League)
 The expected goals, assists etc. are already provided inside the repo, so we are only attributing points and 
 optimizing with knapsack-like problems. There are a couple of methods for optimizing FPL, one with taking just the 
 top 11 players, as the players not playing don't score points aside from wildcard usage, or taking the top 13
-which prevents or heghed risks like injury or red cards. Anyway for my FPL I am currently using top 11 but ts
+which prevents or heghes risks like injury or red cards. Anyway for my FPL I am currently using top 11 but ts
 is not backtested at all and I will change the squad when we'll have the new season data, here is the graph:
 ![A really really nice graph](https://github.com/Michal-Swi/fpl-optimizer/blob/main/data/graphs/11v13.png))
 
