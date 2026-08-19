@@ -4,8 +4,8 @@ import numpy as np
 import os
 
 csv_files = {
-    "Top 11 (Stars & Scrubs)": ("../11.csv", "blue", "o"),
-    "Top 13 (Balanced)": ("../13.csv", "red", "^")
+    "Top 11": ("../11.csv", "blue", "o"),
+    "Top 13": ("../13.csv", "red", "^")
 }
 
 plt.figure(figsize=(12, 7))
@@ -30,8 +30,8 @@ for label, (filepath, color, marker) in csv_files.items():
             plt.plot(x_vals, m * x_vals + b, color=color, linestyle='--', alpha=0.8)
 
 plt.xlabel("Cost")
-plt.ylabel("Expected Value (EV)")
-plt.title("Starting 11: Cost vs. EV by Optimization Strategy")
+plt.ylabel("EV per match")
+plt.title("Price to value visualization of starting 11 players for different optimization tactics")
 plt.grid(True, linestyle=':', alpha=0.6)
 plt.legend()
 plt.tight_layout()
