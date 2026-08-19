@@ -12,7 +12,7 @@ bool comp1(const Player &p1, const Player &p2) {
 }
 
 int main() {
-    Optimizer o("../data/players_raw.csv");
+    Optimizer o("../data/2026/players_raw.csv", "../data/2025/players_raw.csv");
     o.assign_ev();
     o.export_ev_to_csv();
 
@@ -26,6 +26,7 @@ int main() {
 
     std::cout << "Top 15" << std::endl;
 
+	double ev = 0;
     double used_budget = 0;
     for (const auto &p : players) {
         std::cout << "Name: " << p.first_name << ' ' << p.second_name << std::endl;
@@ -33,14 +34,17 @@ int main() {
         std::cout << "Position: " << p.element_type << std::endl;
         std::cout << "Cost: " << p.now_cost << std::endl << std::endl;
 
+		ev += p.ev;
         used_budget += p.now_cost;
     }
 
+	std::cout << "Ev: " << ev << std::endl; 
     std::cout << "Used budget: " << used_budget << std::endl;
 
     std::cout << "=======================================" << std::endl;
     std::cout << "Top 11" << std::endl << std::endl;
 
+	ev = 0;
     used_budget = 0;
     for (const auto &p : players1) {
         std::cout << "Name: " << p.first.first_name << ' ' << p.first.second_name << std::endl;
@@ -49,14 +53,17 @@ int main() {
         std::cout << "Cost: " << p.first.now_cost << std::endl;
         std::cout << "Starting: " << (p.second ? "Yes" : "No") << std::endl << std::endl;
 
+		ev += p.first.ev;
         used_budget += p.first.now_cost;
     }
 
+	std::cout << "Ev: " << ev << std::endl; 
     std::cout << "Used budget: " << used_budget << std::endl;
 
     std::cout << "=======================================" << std::endl;
     std::cout << "Top 13 with cheap second goalkeeper" << std::endl << std::endl;
 
+	ev = 0;
     used_budget = 0;
     for (const auto &p : players2) {
         std::cout << "Name: " << p.first.first_name << ' ' << p.first.second_name << std::endl;
@@ -65,9 +72,11 @@ int main() {
         std::cout << "Cost: " << p.first.now_cost << std::endl;
         std::cout << "Starting: " << (p.second ? "Yes" : "No") << std::endl << std::endl;
 
+		ev += p.first.ev;
         used_budget += p.first.now_cost;
     }
 
+	std::cout << "Ev: " << ev << std::endl; 
     std::cout << "Used budget: " << used_budget << std::endl;
 
     return 0;
