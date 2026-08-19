@@ -9,6 +9,7 @@
 #include <map>
 #include <utility>
 #include <cmath>
+#include <glpk.h>
 
 struct Player {
     std::string first_name;
@@ -184,7 +185,9 @@ class Optimizer {
 
         if (token == "GK" || token == "DEF" || token == "MID" || token == "FWD") {
             return token;
-        }
+		}
+
+		throw std::runtime_error("Error, token type unknown: " + token);
     }
 
 	private:
@@ -324,6 +327,308 @@ class Optimizer {
 
             p.ev = app_ev + attack_ev + defense_ev + bp_ev;
         }
+    }
+
+	std::vector<Player> select_optimal_squad(double budget = 1000.0) {
+        glp_prob *mip = glp_create_prob();
+        glp_set_prob_name(mip, "FPL_Optimizer_Full_15");
+        glp_set_obj_dir(mip, GLP_MAX);
+
+        int n = players.size();
+        glp_add_cols(mip, n);
+
+        for (int i = 0; i < n; ++i) {
+            glp_set_col_bnds(mip, i + 1, GLP_DB, 0.0, 1.0);
+            glp_set_col_kind(mip, i + 1, GLP_BV);
+            glp_set_obj_coef(mip, i + 1, players[i].ev);
+        }
+
+        std::map<int, int> team_to_row;
+        int current_row = 6;
+        for (const auto& p : players) {
+            if (team_to_row.find(p.team) == team_to_row.end()) {
+                team_to_row[p.team] = current_row++;
+            }
+        }
+
+        int total_rows = current_row - 1;
+        glp_add_rows(mip, total_rows);
+
+        glp_set_row_bnds(mip, 1, GLP_UP, 0.0, budget);
+        glp_set_row_bnds(mip, 2, GLP_FX, 2.0, 2.0);
+        glp_set_row_bnds(mip, 3, GLP_FX, 5.0, 5.0);
+        glp_set_row_bnds(mip, 4, GLP_FX, 5.0, 5.0);
+        glp_set_row_bnds(mip, 5, GLP_FX, 3.0, 3.0);
+
+        for (int r = 6; r <= total_rows; ++r) {
+            glp_set_row_bnds(mip, r, GLP_UP, 0.0, 3.0);
+        }
+
+        std::vector<int> ia(1, 0), ja(1, 0);
+        std::vector<double> ar(1, 0.0);
+
+        auto add_coef = [&](int row, int col, double val) {
+            ia.push_back(row);
+            ja.push_back(col);
+            ar.push_back(val);
+        };
+
+        for (int i = 0; i < n; ++i) {
+            int col = i + 1;
+            
+            add_coef(1, col, players[i].now_cost);
+
+            if (players[i].element_type == "GK" || players[i].element_type == "Goalkeeper") add_coef(2, col, 1.0);
+            else if (players[i].element_type == "DEF" || players[i].element_type == "Defender") add_coef(3, col, 1.0);
+            else if (players[i].element_type == "MID" || players[i].element_type == "Midfielder") add_coef(4, col, 1.0);
+            else if (players[i].element_type == "FWD" || players[i].element_type == "Forward") add_coef(5, col, 1.0);
+
+            add_coef(team_to_row[players[i].team], col, 1.0);
+        }
+
+        glp_load_matrix(mip, ia.size() - 1, ia.data(), ja.data(), ar.data());
+
+        glp_iocp parm;
+        glp_init_iocp(&parm);
+        parm.presolve = GLP_ON;
+        parm.msg_lev = GLP_MSG_OFF;
+
+        glp_intopt(mip, &parm);
+
+        std::vector<Player> optimal_squad;
+        if (glp_mip_status(mip) == GLP_OPT || glp_mip_status(mip) == GLP_FEAS) {
+            for (int i = 0; i < n; ++i) {
+                if (glp_mip_col_val(mip, i + 1) > 0.5) {
+                    optimal_squad.push_back(players[i]);
+                }
+            }
+        }
+
+        glp_delete_prob(mip);
+        return optimal_squad;
+    }
+
+    std::vector<std::pair<Player, bool>> select_optimal_starting_11(double budget = 1000.0) {
+        glp_prob *mip = glp_create_prob();
+        glp_set_prob_name(mip, "FPL_Optimizer_Starting_11");
+        glp_set_obj_dir(mip, GLP_MAX);
+
+        int n = players.size();
+        glp_add_cols(mip, 2 * n);
+
+        for (int i = 0; i < n; ++i) {
+            glp_set_col_bnds(mip, i + 1, GLP_DB, 0.0, 1.0);
+            glp_set_col_kind(mip, i + 1, GLP_BV);
+            glp_set_obj_coef(mip, i + 1, 0.0);
+
+            glp_set_col_bnds(mip, n + i + 1, GLP_DB, 0.0, 1.0);
+            glp_set_col_kind(mip, n + i + 1, GLP_BV);
+            glp_set_obj_coef(mip, n + i + 1, players[i].ev);
+        }
+
+        std::map<int, int> team_to_row;
+        int current_row = 11;
+        for (const auto& p : players) {
+            if (team_to_row.find(p.team) == team_to_row.end()) {
+                team_to_row[p.team] = current_row++;
+            }
+        }
+
+        int start_of_link_rows = current_row;
+        int total_rows = start_of_link_rows + n - 1;
+        
+        glp_add_rows(mip, total_rows);
+
+        glp_set_row_bnds(mip, 1, GLP_UP, 0.0, budget);
+        glp_set_row_bnds(mip, 2, GLP_FX, 2.0, 2.0);
+        glp_set_row_bnds(mip, 3, GLP_FX, 5.0, 5.0);
+        glp_set_row_bnds(mip, 4, GLP_FX, 5.0, 5.0);
+        glp_set_row_bnds(mip, 5, GLP_FX, 3.0, 3.0);
+        glp_set_row_bnds(mip, 6, GLP_FX, 1.0, 1.0);
+        glp_set_row_bnds(mip, 7, GLP_DB, 3.0, 5.0);
+        glp_set_row_bnds(mip, 8, GLP_DB, 2.0, 5.0);
+        glp_set_row_bnds(mip, 9, GLP_DB, 1.0, 3.0);
+        glp_set_row_bnds(mip, 10, GLP_FX, 11.0, 11.0);
+
+        for (int r = 11; r < start_of_link_rows; ++r) {
+            glp_set_row_bnds(mip, r, GLP_UP, 0.0, 3.0);
+        }
+
+        for (int i = 0; i < n; ++i) {
+            glp_set_row_bnds(mip, start_of_link_rows + i, GLP_UP, 0.0, 0.0);
+        }
+
+        std::vector<int> ia(1, 0), ja(1, 0);
+        std::vector<double> ar(1, 0.0);
+
+        auto add_coef = [&](int row, int col, double val) {
+            ia.push_back(row);
+            ja.push_back(col);
+            ar.push_back(val);
+        };
+
+        for (int i = 0; i < n; ++i) {
+            int x_col = i + 1;
+            int y_col = n + i + 1;
+            
+            add_coef(1, x_col, players[i].now_cost);
+
+            bool is_gk = (players[i].element_type == "GK" || players[i].element_type == "Goalkeeper");
+            bool is_def = (players[i].element_type == "DEF" || players[i].element_type == "Defender");
+            bool is_mid = (players[i].element_type == "MID" || players[i].element_type == "Midfielder");
+            bool is_fwd = (players[i].element_type == "FWD" || players[i].element_type == "Forward");
+
+            if (is_gk) add_coef(2, x_col, 1.0);
+            else if (is_def) add_coef(3, x_col, 1.0);
+            else if (is_mid) add_coef(4, x_col, 1.0);
+            else if (is_fwd) add_coef(5, x_col, 1.0);
+
+            if (is_gk) add_coef(6, y_col, 1.0);
+            else if (is_def) add_coef(7, y_col, 1.0);
+            else if (is_mid) add_coef(8, y_col, 1.0);
+            else if (is_fwd) add_coef(9, y_col, 1.0);
+
+            add_coef(10, y_col, 1.0);
+            add_coef(team_to_row[players[i].team], x_col, 1.0);
+            add_coef(start_of_link_rows + i, y_col, 1.0);
+            add_coef(start_of_link_rows + i, x_col, -1.0);
+        }
+
+        glp_load_matrix(mip, ia.size() - 1, ia.data(), ja.data(), ar.data());
+
+        glp_iocp parm;
+        glp_init_iocp(&parm);
+        parm.presolve = GLP_ON;
+        parm.msg_lev = GLP_MSG_OFF;
+
+        glp_intopt(mip, &parm);
+
+        std::vector<std::pair<Player, bool>> optimal_squad;
+        if (glp_mip_status(mip) == GLP_OPT || glp_mip_status(mip) == GLP_FEAS) {
+            for (int i = 0; i < n; ++i) {
+                if (glp_mip_col_val(mip, i + 1) > 0.5) {
+                    bool is_starting = glp_mip_col_val(mip, n + i + 1) > 0.5;
+                    optimal_squad.push_back({players[i], is_starting});
+                }
+            }
+        }
+
+        glp_delete_prob(mip);
+        return optimal_squad;
+    }
+
+    std::vector<std::pair<Player, bool>> select_optimal_squad_cheap_backup_gk(double budget = 1000.0) {
+        glp_prob *mip = glp_create_prob();
+        glp_set_prob_name(mip, "FPL_Optimizer_Cheap_Backup_GK");
+        glp_set_obj_dir(mip, GLP_MAX);
+
+        int n = players.size();
+        glp_add_cols(mip, 2 * n);
+
+        for (int i = 0; i < n; ++i) {
+            bool is_gk = (players[i].element_type == "GK" || players[i].element_type == "Goalkeeper");
+            
+            glp_set_col_bnds(mip, i + 1, GLP_DB, 0.0, 1.0);
+            glp_set_col_kind(mip, i + 1, GLP_BV);
+            
+            glp_set_col_bnds(mip, n + i + 1, GLP_DB, 0.0, 1.0);
+            glp_set_col_kind(mip, n + i + 1, GLP_BV);
+            
+            if (is_gk) {
+                glp_set_obj_coef(mip, i + 1, -0.00001 * players[i].now_cost);
+                glp_set_obj_coef(mip, n + i + 1, players[i].ev);
+            } else {
+                glp_set_obj_coef(mip, i + 1, players[i].ev);
+                glp_set_obj_coef(mip, n + i + 1, 0.0);
+            }
+        }
+
+        std::map<int, int> team_to_row;
+        int current_row = 7;
+        for (const auto& p : players) {
+            if (team_to_row.find(p.team) == team_to_row.end()) {
+                team_to_row[p.team] = current_row++;
+            }
+        }
+
+        int start_of_link_rows = current_row;
+        int total_rows = start_of_link_rows + n - 1;
+        
+        glp_add_rows(mip, total_rows);
+
+        glp_set_row_bnds(mip, 1, GLP_UP, 0.0, budget);
+        glp_set_row_bnds(mip, 2, GLP_FX, 2.0, 2.0);
+        glp_set_row_bnds(mip, 3, GLP_FX, 5.0, 5.0);
+        glp_set_row_bnds(mip, 4, GLP_FX, 5.0, 5.0);
+        glp_set_row_bnds(mip, 5, GLP_FX, 3.0, 3.0);
+        glp_set_row_bnds(mip, 6, GLP_FX, 1.0, 1.0);
+
+        for (int r = 7; r < start_of_link_rows; ++r) {
+            glp_set_row_bnds(mip, r, GLP_UP, 0.0, 3.0);
+        }
+
+        for (int i = 0; i < n; ++i) {
+            glp_set_row_bnds(mip, start_of_link_rows + i, GLP_UP, 0.0, 0.0);
+        }
+
+        std::vector<int> ia(1, 0), ja(1, 0);
+        std::vector<double> ar(1, 0.0);
+
+        auto add_coef = [&](int row, int col, double val) {
+            ia.push_back(row);
+            ja.push_back(col);
+            ar.push_back(val);
+        };
+
+        for (int i = 0; i < n; ++i) {
+            int x_col = i + 1;
+            int y_col = n + i + 1;
+            
+            add_coef(1, x_col, players[i].now_cost);
+
+            bool is_gk = (players[i].element_type == "GK" || players[i].element_type == "Goalkeeper");
+            bool is_def = (players[i].element_type == "DEF" || players[i].element_type == "Defender");
+            bool is_mid = (players[i].element_type == "MID" || players[i].element_type == "Midfielder");
+            bool is_fwd = (players[i].element_type == "FWD" || players[i].element_type == "Forward");
+
+            if (is_gk) {
+                add_coef(2, x_col, 1.0);
+                add_coef(6, y_col, 1.0);
+            }
+            else if (is_def) add_coef(3, x_col, 1.0);
+            else if (is_mid) add_coef(4, x_col, 1.0);
+            else if (is_fwd) add_coef(5, x_col, 1.0);
+
+            add_coef(team_to_row[players[i].team], x_col, 1.0);
+
+            add_coef(start_of_link_rows + i, y_col, 1.0);
+            add_coef(start_of_link_rows + i, x_col, -1.0);
+        }
+
+        glp_load_matrix(mip, ia.size() - 1, ia.data(), ja.data(), ar.data());
+
+        glp_iocp parm;
+        glp_init_iocp(&parm);
+        parm.presolve = GLP_ON;
+        parm.msg_lev = GLP_MSG_OFF;
+
+        glp_intopt(mip, &parm);
+
+        std::vector<std::pair<Player, bool>> optimal_squad;
+        if (glp_mip_status(mip) == GLP_OPT || glp_mip_status(mip) == GLP_FEAS) {
+            for (int i = 0; i < n; ++i) {
+                if (glp_mip_col_val(mip, i + 1) > 0.5) {
+                    bool is_starting_or_outfielder = true;
+                    if (players[i].element_type == "GK" || players[i].element_type == "Goalkeeper") {
+                        is_starting_or_outfielder = glp_mip_col_val(mip, n + i + 1) > 0.5;
+                    }
+                    optimal_squad.push_back({players[i], is_starting_or_outfielder});
+                }
+            }
+        }
+
+        glp_delete_prob(mip);
+        return optimal_squad;
     }
 };
 
